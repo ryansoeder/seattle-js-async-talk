@@ -1,0 +1,911 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trial Finder</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --text: #12161c;
+    --muted: #586170;
+    --border: #d6dbe3;
+    --accent: #1f55d6;
+    --accent-soft: #e6edfc;
+    --star: #d99a00;
+    --warn-bg: #fff6dc;
+    --warn-text: #7a5200;
+    --error-bg: #fdecea;
+    --error-text: #a3221a;
+    --good: #12733a;
+    --radius: 10px;
+    font-size: 18px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.45;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { margin: 0; font-size: 1.3rem; }
+  .badge {
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge.stage { background: var(--warn-bg); color: var(--warn-text); }
+  header .spacer { flex: 1; }
+  main {
+    display: grid;
+    gap: 18px;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 18px 24px 64px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+  }
+  h2 { margin: 0; font-size: 1.1rem; }
+  h3 { margin: 0 0 8px; font-size: 1rem; }
+  h3 small { color: var(--muted); font-weight: 500; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .muted { color: var(--muted); }
+
+  /* Profile */
+  .profile-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px 16px;
+    margin: 12px 0 14px;
+  }
+  .span-4 { grid-column: span 4; }
+  .span-3 { grid-column: span 3; }
+  label { display: grid; gap: 4px; color: var(--muted); font-size: 0.8rem; font-weight: 600; }
+  input, select, textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 1rem;
+  }
+  textarea { resize: vertical; }
+  button {
+    padding: 8px 16px;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.secondary { background: var(--surface); color: var(--accent); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  progress {
+    appearance: none;
+    width: 260px;
+    height: 16px;
+    border: 0;
+    border-radius: 999px;
+    background: #e1e6ee;
+    overflow: hidden;
+  }
+  progress::-webkit-progress-bar { background: #e1e6ee; }
+  progress::-webkit-progress-value { background: var(--accent); }
+  progress::-moz-progress-bar { background: var(--accent); }
+  #match-percent { min-width: 3.5ch; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  /* Shortlist + enrichment */
+  .panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .panel-head h2 { margin-right: auto; }
+  .spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #cfd8ea;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    visibility: hidden;
+  }
+  .spinner.active { visibility: visible; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+  .chips li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 380px;
+    padding: 4px 6px 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.8rem;
+  }
+  .chips li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chips button { padding: 0 8px; border: 0; background: none; color: var(--muted); font-size: 1rem; }
+  .enrich-section { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .disclaimer {
+    margin: 0 0 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--warn-bg);
+    color: var(--warn-text);
+    font-size: 0.8rem;
+  }
+  .notice {
+    margin: 0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--warn-bg);
+    color: var(--warn-text);
+  }
+  .error {
+    margin: 16px 0 0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--error-bg);
+    color: var(--error-text);
+  }
+  .drug { padding: 10px 0; border-bottom: 1px dashed var(--border); }
+  .drug:last-of-type { border-bottom: 0; }
+  .drug p { margin: 4px 0; font-size: 0.85rem; }
+  .pubs { margin: 0; padding-left: 20px; font-size: 0.85rem; }
+  .pubs li { margin: 4px 0; }
+
+  /* Trials */
+  table { width: 100%; margin-top: 12px; border-collapse: collapse; font-size: 0.85rem; }
+  th {
+    padding: 8px 10px;
+    border-bottom: 2px solid var(--border);
+    color: var(--muted);
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  td a { color: var(--accent); }
+  .nct { color: var(--muted); font-size: 0.75rem; }
+  .star {
+    padding: 0 4px;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-size: 1.3rem;
+    line-height: 1;
+  }
+  .star[aria-pressed="true"] { color: var(--star); }
+  .score { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .score.high { color: var(--good); }
+  .match-note { color: var(--muted); font-size: 0.75rem; }
+  tr.ineligible td { opacity: 0.55; }
+  #show-more { margin-top: 14px; }
+
+  @media (max-width: 760px) {
+    header, main { padding-left: 16px; padding-right: 16px; }
+    .profile-grid { grid-template-columns: 1fr 1fr; }
+    .span-4, .span-3 { grid-column: span 2; }
+    table { display: block; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Trial Finder</h1>
+  <span class="badge" id="mode-badge">Live</span>
+  <span class="spacer"></span>
+  <button class="secondary" id="save-recording" hidden>Save recording…</button>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Your profile</h2>
+    <form id="profile-form" class="profile-grid">
+      <label class="span-4">Conditions
+        <input id="conditions" value="type 2 diabetes, hypertension, chronic kidney disease">
+      </label>
+      <label>Age
+        <input id="age" type="number" min="0" max="120" value="58">
+      </label>
+      <label>Sex
+        <select id="sex">
+          <option value="female" selected>Female</option>
+          <option value="male">Male</option>
+        </select>
+      </label>
+      <label class="span-3">Current medications
+        <textarea id="medications" rows="2">metformin, lisinopril, atorvastatin</textarea>
+      </label>
+      <label class="span-3">Prior treatments
+        <textarea id="prior-treatments" rows="2">insulin glargine</textarea>
+      </label>
+    </form>
+    <div class="row">
+      <button type="submit" form="profile-form">Search trials</button>
+      <button type="button" class="secondary" id="match-btn" disabled>Update matches</button>
+      <progress id="match-progress" max="1" value="0"></progress>
+      <span id="match-percent">0%</span>
+      <span class="muted" id="match-status"></span>
+    </div>
+  </section>
+
+  <section class="card" id="shortlist-panel">
+    <div class="panel-head">
+      <h2>Shortlist <span class="muted" id="shortlist-count">(0)</span></h2>
+      <select id="demo-shortlist" aria-label="Demo shortlist" style="width:auto">
+        <option value="">Demo shortlist…</option>
+      </select>
+      <button type="button" id="enrich-btn" disabled>Enrich shortlist</button>
+      <span class="spinner" id="enrich-spinner" role="status" aria-label="Loading"></span>
+    </div>
+    <ul class="chips" id="shortlist-chips"></ul>
+    <p class="muted" id="shortlist-hint">Star trials below to compare them here.</p>
+    <div id="enrich-sections"></div>
+  </section>
+
+  <section class="card">
+    <div class="panel-head">
+      <h2>Recruiting trials</h2>
+      <span class="muted" id="search-status"></span>
+    </div>
+    <table>
+      <thead>
+        <tr><th></th><th>Match</th><th>Trial</th><th>Status</th><th>Phase</th><th>Conditions</th></tr>
+      </thead>
+      <tbody id="trial-rows"></tbody>
+    </table>
+    <button type="button" class="secondary" id="show-more" hidden></button>
+  </section>
+</main>
+
+<!-- The matcher. Also the worker script: see the comment at the top of worker.js. -->
+<script src="worker.js"></script>
+<script>
+/*
+ * Trial Finder — demo app for "Your app isn't slow, it's badly scheduled."
+ *
+ * Run:  python3 -m http.server 8000   then open http://localhost:8000/
+ *       ?stage    replay recorded responses from stage/ (works offline)
+ *       ?record   record live responses; "Save recording…" writes them to a folder
+ *
+ * SEGMENT INDEX: search for the quoted string.
+ *
+ *   Enrichment: segments 1–2 build on each other, in enrichShortlist()
+ *     1. "SEGMENT 1 BEFORE"      forEach(async …): the spinner vanishes, sections pop in
+ *     2. "SEGMENT 1 FIX"         Promise.all
+ *     3. "SEGMENT 2 FIX"         Promise.allSettled
+ *
+ *   Matching: segments 3–5 are alternatives, in runMatching()
+ *     4. "BASELINE"              one synchronous loop: the form freezes
+ *     5. "SEGMENT 3 MICROTASK"   await Promise.resolve(): still frozen
+ *     6. "SEGMENT 3 FIX"         setTimeout(0) between chunks
+ *     7. "SEGMENT 4 FIX"         scheduler.yield()
+ *     8. "SEGMENT 5 FIX"         Web Worker
+ *
+ * To switch, uncomment one block. Each block ends in `return`, so the first
+ * uncommented block wins and the code below it is skipped. In runMatching(),
+ * re-comment the previous segment's block before uncommenting the next one.
+ *
+ * DevTools → Performance → Timings track: search · enrich · match · worker:copy
+ */
+
+const CHUNK_BUDGET_MS = 10; // segments 3–4: yield after this much matching work
+
+const CTGOV_URL = 'https://clinicaltrials.gov/api/v2/studies';
+const OPENFDA_URL = 'https://api.fda.gov/drug/label.json';
+const PUBMED_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi';
+
+const STATUS_FILTER = 'RECRUITING|ENROLLING_BY_INVITATION|AVAILABLE';
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 3;
+const SEARCH_FIELDS = [
+  'NCTId', 'BriefTitle', 'OverallStatus', 'Phase', 'Condition',
+  'EligibilityCriteria', 'InterventionName', 'InterventionType', 'ReferencePMID',
+].join(',');
+const ROWS_PER_PAGE = 100; // the table shows the top 100; "Show more" adds 100 more
+const FDA_LABEL_LIMIT = 25; // labels are 100–300KB each, so keep this small
+const MAX_PMIDS = 40;
+
+// Stage mode replays recorded responses with these latencies (ms): live medians,
+// measured 2026-10-25. ctgov is a cold 1,000-trial page; openfda is the segment 1
+// label request (~2MB).
+const STAGE_LATENCY_MS = { ctgov: 850, openfda: 980, pubmed: 230 };
+
+// Shortlists picked from real search results for the demo profile.
+const DEMO_SHORTLISTS = {
+  // empagliflozin + metformin, dapagliflozin, tirzepatide: all have FDA labels
+  'Segment 1: approved drugs': ['NCT07771010', 'NCT05359263', 'NCT07247084'],
+  // VX-880 + VX-017, dapansutrile, SC101: no FDA label, so openFDA answers 404
+  'Segment 2: investigational drugs': ['NCT04786262', 'NCT06047262', 'NCT07483372'],
+};
+
+const params = new URLSearchParams(location.search);
+const STAGE = params.has('stage');
+const RECORD = params.has('record');
+
+const $ = (id) => document.getElementById(id);
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let loadedTrials = [];          // the current search's trials
+let trialsById = new Map();
+let searchId = 0;               // bumps on every search
+let matchResults = null;        // aligned with loadedTrials, once matching has run
+let matchRun = 0;               // plumbing: a newer run makes older results stale
+let rowsShown = ROWS_PER_PAGE;
+const starredTrials = new Map(); // nctId → trial
+
+// ---------------------------------------------------------------------------
+// Network: every request goes through request(), so stage mode can replay it
+// ---------------------------------------------------------------------------
+const recording = new Map(); // url → { service, status, body } (with ?record)
+let stageIndex = null;
+
+async function request(service, url) {
+  if (STAGE) return replay(service, url);
+  const res = await fetch(url);
+  if (RECORD) {
+    recording.set(url, { service, status: res.status, body: await res.clone().text() });
+    $('save-recording').textContent = `Save recording (${recording.size})…`;
+  }
+  return res;
+}
+
+async function replay(service, url) {
+  stageIndex ??= fetch('stage/index.json').then((res) => res.json());
+  const entry = (await stageIndex)[url];
+  if (!entry) console.warn('[stage] not recorded:', url);
+  await new Promise((r) => setTimeout(r, STAGE_LATENCY_MS[service]));
+  // A recorded failure has no file, so the local server answers 404 for real —
+  // the same status openFDA sends when nothing matches.
+  return fetch(entry?.file ? `stage/${entry.file}` : `stage/missing-${service}`);
+}
+
+async function saveRecording() {
+  const dir = await window.showDirectoryPicker({ mode: 'readwrite' });
+  const index = {};
+  const counts = {};
+  for (const [url, { service, status, body }] of recording) {
+    counts[service] = (counts[service] ?? 0) + 1;
+    const file = status === 200 ? `${service}-${counts[service]}.json` : null;
+    index[url] = { status, file };
+    if (file) await writeFile(dir, file, body);
+  }
+  await writeFile(dir, 'index.json', JSON.stringify(index, null, 2));
+}
+
+async function writeFile(dir, name, text) {
+  const out = await (await dir.getFileHandle(name, { create: true })).createWritable();
+  await out.write(text);
+  await out.close();
+}
+
+class HttpError extends Error {
+  constructor(source, status) {
+    super(`${source} responded ${status}`);
+    this.status = status;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Feature 1: Search. One request per page, conditions combined with OR.
+// Pages are fetched one after another: page 2's token only exists once
+// page 1 has returned.
+// ---------------------------------------------------------------------------
+async function searchTrials(conditions) {
+  const query = new URLSearchParams({
+    'query.cond': conditions.map((c) => `(${c.replace(/[()"]/g, ' ')})`).join(' OR '),
+    'filter.overallStatus': STATUS_FILTER,
+    fields: SEARCH_FIELDS,
+    pageSize: PAGE_SIZE,
+    countTotal: 'true',
+  });
+  const trials = [];
+  let total = 0;
+  let pages = 0;
+  let pageToken = null;
+
+  do {
+    if (pageToken) query.set('pageToken', pageToken);
+    const res = await request('ctgov', `${CTGOV_URL}?${query}`);
+    if (!res.ok) throw new HttpError('ClinicalTrials.gov', res.status);
+    const page = await res.json();
+    if (pages === 0) total = page.totalCount;
+    trials.push(...page.studies.map(toTrial));
+    pageToken = page.nextPageToken;
+    pages++;
+  } while (pageToken && pages < MAX_PAGES);
+
+  return { trials, total, capped: Boolean(pageToken) };
+}
+
+function toTrial({ protocolSection: p }) {
+  return {
+    nctId: p.identificationModule.nctId,
+    title: p.identificationModule.briefTitle ?? '',
+    status: p.statusModule?.overallStatus ?? '',
+    phases: p.designModule?.phases ?? [],
+    conditions: p.conditionsModule?.conditions ?? [],
+    criteria: p.eligibilityModule?.eligibilityCriteria ?? '',
+    interventions: (p.armsInterventionsModule?.interventions ?? [])
+      .map(({ name, type }) => ({ name, type })),
+    pmids: (p.referencesModule?.references ?? []).map((r) => r.pmid).filter(Boolean),
+  };
+}
+
+async function runSearch() {
+  const profile = readProfile();
+  if (!profile.conditions.length) return;
+  performance.mark('search:start');
+  matchRun++; // any matching still running belongs to the old results
+  $('search-status').textContent = 'Searching…';
+  $('match-btn').disabled = true;
+
+  try {
+    const { trials, total, capped } = await searchTrials(profile.conditions);
+    loadedTrials = trials;
+    trialsById = new Map(trials.map((t) => [t.nctId, t]));
+    matchResults = null;
+    rowsShown = ROWS_PER_PAGE;
+    searchId++;
+    setProgress(0);
+    $('match-status').textContent = '';
+    $('match-btn').disabled = !trials.length;
+    renderTable();
+    $('search-status').textContent = capped
+      ? `Showing the first ${fmt(trials.length)} of ${fmt(total)}. Add detail to narrow the search.`
+      : `${fmt(total)} trials`;
+  } catch (error) {
+    $('search-status').textContent = `Search failed: ${error.message}`;
+  }
+  performance.measure('search', 'search:start');
+}
+
+// ---------------------------------------------------------------------------
+// Feature 2: Enrich the shortlist (segments 1–2).
+// Two independent services, one batched request each — never one per trial.
+// Drug names and PMIDs came with the search, so neither service waits on the other.
+// ---------------------------------------------------------------------------
+const DRUG_TYPES = new Set(['DRUG', 'BIOLOGICAL']);
+const NOT_A_DRUG = /placebo|saline|vehicle|standard of care|usual care|control/i;
+const FORMULATION = new RegExp(
+  '\\b(tablets?|capsules?|injections?|injectable|injector|pen|oral|subcutaneous|' +
+    'intravenous|solution|eye drops|drops|extended[- ]release|er|xr|sr|hcl|' +
+    'hydrochloride)\\b', 'gi');
+
+function drugNames(shortlist) {
+  const names = new Set();
+  for (const { interventions } of shortlist) {
+    for (const { name, type } of interventions) {
+      if (!DRUG_TYPES.has(type) || !name || NOT_A_DRUG.test(name)) continue;
+      const bare = name
+        .replace(/\(.*?\)|\[.*?\]/g, ' ') // "(Ozempic)", "[Xifaxan]"
+        .replace(/^[^:]{0,30}:\s*/, ''); // "Drug: ", "Group 2: "
+      for (const part of bare.split(/\s*(?:\+|\/|,|\band\b|\bplus\b)\s*/i)) {
+        const clean = part
+          .replace(/\b\d+(\.\d+)?\s*(mg|mcg|µg|g|ml|iu|units?|%|milligram).*$/i, ' ')
+          .replace(FORMULATION, ' ')
+          .replace(/["\\]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
+        if (clean.length > 2 && clean.length < 40) names.add(clean);
+      }
+    }
+  }
+  return [...names];
+}
+
+async function fetchDrugLabels(shortlist) {
+  const drugs = drugNames(shortlist);
+  if (!drugs.length) return { drugs, labels: [], disclaimer: '' };
+
+  // Brand-name labels from the original packager only, no combination products:
+  // generics and repackagers would return hundreds of copies of each drug.
+  const terms = drugs.map((d) => `"${d}"`).join(' ');
+  const search =
+    `(openfda.generic_name:(${terms}) OR openfda.brand_name:(${terms}))` +
+    ' AND openfda.application_number:(NDA* BLA*)' +
+    ' AND openfda.is_original_packager:true AND NOT openfda.generic_name:and';
+  const url = `${OPENFDA_URL}?${new URLSearchParams({ search, limit: FDA_LABEL_LIMIT })}`;
+
+  const res = await request('openfda', url);
+  if (!res.ok) throw new HttpError('openFDA', res.status); // a 404 resolves; fetch won't throw
+  const body = await res.json();
+  return { drugs, labels: body.results, disclaimer: body.meta.disclaimer };
+}
+
+async function fetchPublications(shortlist) {
+  const pmids = [...new Set(shortlist.flatMap((t) => t.pmids))].slice(0, MAX_PMIDS);
+  if (!pmids.length) return [];
+  const url = `${PUBMED_URL}?${new URLSearchParams({ db: 'pubmed', retmode: 'json', id: pmids.join(',') })}`;
+
+  const res = await request('pubmed', url);
+  if (!res.ok) throw new HttpError('PubMed', res.status);
+  const { result } = await res.json();
+  return result.uids.map((uid) => result[uid]).filter((doc) => doc && !doc.error);
+}
+
+const services = [
+  {
+    name: 'Drug labels',
+    source: 'openFDA',
+    fetch: fetchDrugLabels,
+    render: renderDrugLabels,
+    notFound: 'No FDA label found for these drugs',
+    unavailable: 'Drug information is unavailable right now',
+  },
+  {
+    name: 'Publications',
+    source: 'PubMed',
+    fetch: fetchPublications,
+    render: renderPublications,
+    notFound: 'No publications found for these trials',
+    unavailable: 'Publications are unavailable right now',
+  },
+];
+
+async function enrichShortlist() {
+  const shortlist = [...starredTrials.values()];
+  if (!shortlist.length) return;
+  performance.mark('enrich:start');
+  $('enrich-sections').innerHTML = '';
+  showSpinner();
+
+  try {
+    // ===== SEGMENT 2 FIX: Promise.allSettled =====
+    // const outcomes = await Promise.allSettled(services.map((s) => s.fetch(shortlist)));
+    // outcomes.forEach((outcome, i) =>
+    //   outcome.status === 'fulfilled'
+    //     ? renderSection(services[i], outcome.value)
+    //     : renderFailure(services[i], outcome.reason));
+    // return;
+
+    // ===== SEGMENT 1 FIX: Promise.all =====
+    // const results = await Promise.all(services.map((s) => s.fetch(shortlist)));
+    // results.forEach((data, i) => renderSection(services[i], data));
+    // return;
+
+    // ===== SEGMENT 1 BEFORE: forEach drops the promises =====
+    services.forEach(async (service) => {
+      const data = await service.fetch(shortlist);
+      renderSection(service, data);
+    });
+  } catch (error) {
+    // Segment 2's "before": one rejection fails the whole panel.
+    $('enrich-sections').innerHTML =
+      `<p class="error">Couldn't load details for this shortlist. ${esc(error.message)}</p>`;
+  } finally {
+    hideSpinner();
+    performance.measure('enrich', 'enrich:start');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Feature 3: Eligibility matching (segments 3–5).
+// Runs in the browser so the patient's health information never leaves the device.
+// matchTrial() lives in worker.js.
+// ---------------------------------------------------------------------------
+async function updateMatches() {
+  if (!loadedTrials.length) return;
+  const run = ++matchRun;
+  const profile = readProfile();
+  performance.mark('match:start');
+  setProgress(0);
+  $('match-status').textContent = 'Matching…';
+
+  const results = await runMatching(profile, run);
+  if (run !== matchRun) return; // a newer run started; discard these results
+
+  setProgress(1);
+  matchResults = results;
+  rowsShown = ROWS_PER_PAGE;
+  renderTable();
+  const fits = results.filter((r) => r.eligible && r.score >= 60).length;
+  $('match-status').textContent = `${fmt(fits)} strong matches`;
+  performance.measure('match', 'match:start');
+}
+
+function runMatching(profile, run) {
+  // ===== SEGMENT 3 MICROTASK: await Promise.resolve() — still frozen =====
+  // return matchInChunks(profile, run, () => Promise.resolve());
+
+  // ===== SEGMENT 3 FIX: setTimeout(0) between chunks =====
+  // return matchInChunks(profile, run, () => new Promise((r) => setTimeout(r, 0)));
+
+  // ===== SEGMENT 4 FIX: scheduler.yield() =====
+  // return matchInChunks(profile, run, yieldToMain);
+
+  // ===== SEGMENT 5 FIX: Web Worker =====
+  // return matchInWorker(profile, run);
+
+  // ===== BASELINE: one synchronous loop =====
+  const results = [];
+  for (const trial of loadedTrials) {
+    results.push(matchTrial(trial, profile));
+  }
+  return results;
+}
+
+// Segments 3–4: the same loop, cut into ~10ms chunks. Only the yield differs.
+async function matchInChunks(profile, run, yieldFn) {
+  const trials = loadedTrials;
+  const results = [];
+  let chunkStart = performance.now();
+
+  for (let i = 0; i < trials.length; i++) {
+    results.push(matchTrial(trials[i], profile));
+    if (performance.now() - chunkStart >= CHUNK_BUDGET_MS) {
+      setProgress((i + 1) / trials.length);
+      await yieldFn();
+      if (run !== matchRun) return null; // a newer run took over
+      chunkStart = performance.now();
+    }
+  }
+  return results;
+}
+
+// Segment 4: Chromium has scheduler.yield(); Safari doesn't. Fall back to setTimeout.
+const yieldToMain = () =>
+  globalThis.scheduler?.yield?.() ?? new Promise((r) => setTimeout(r, 0));
+
+// Segment 5: one worker, created on first use and reused for every run.
+let matchWorker = null;
+let workerSearchId = 0;          // which search the worker's copy of the trials is from
+const workerRuns = new Map();    // run → resolve
+
+function matchInWorker(profile, run) {
+  if (!matchWorker) {
+    matchWorker = new Worker('worker.js');
+    // Progress and results arrive as message tasks. The worker can't touch the
+    // DOM, so the main thread draws the bar and renders the results.
+    matchWorker.onmessage = ({ data }) => {
+      if (data.type === 'progress' && data.run === matchRun) setProgress(data.done / data.total);
+      if (data.type === 'results') {
+        workerRuns.get(data.run)?.(data.results);
+        workerRuns.delete(data.run);
+      }
+    };
+  }
+  if (workerSearchId !== searchId) {
+    // Once per search: copy the trials into the worker. Each run sends only the profile.
+    performance.mark('worker:copy:start');
+    matchWorker.postMessage({ type: 'trials', trials: loadedTrials });
+    performance.measure('worker:copy', 'worker:copy:start');
+    workerSearchId = searchId;
+  }
+  return new Promise((resolve) => {
+    workerRuns.set(run, resolve);
+    matchWorker.postMessage({ type: 'match', run, profile });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Rendering. All registry and API text is sponsor- or third-party-written:
+// it goes through esc() before it reaches innerHTML.
+// ---------------------------------------------------------------------------
+const esc = (value) =>
+  String(value ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const fmt = (n) => n.toLocaleString('en-US');
+const truncate = (text, max) => (text.length > max ? `${text.slice(0, max).trimEnd()}…` : text);
+
+function readProfile() {
+  const list = (id) => $(id).value.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
+  return {
+    age: Number($('age').value) || null,
+    sex: $('sex').value || null,
+    conditions: list('conditions'),
+    medications: list('medications'),
+    priorTreatments: list('prior-treatments'),
+  };
+}
+
+function setProgress(fraction) {
+  $('match-progress').value = fraction;
+  $('match-percent').textContent = `${Math.round(fraction * 100)}%`;
+}
+
+const showSpinner = () => $('enrich-spinner').classList.add('active');
+const hideSpinner = () => $('enrich-spinner').classList.remove('active');
+
+const STATUS_LABELS = {
+  RECRUITING: 'Recruiting',
+  ENROLLING_BY_INVITATION: 'By invitation',
+  AVAILABLE: 'Available',
+};
+
+function formatPhase(phases) {
+  const numbers = phases.filter((p) => p.startsWith('PHASE')).map((p) => p.slice(5));
+  if (phases.includes('EARLY_PHASE1')) numbers.unshift('Early 1');
+  return numbers.length ? `Phase ${numbers.join('/')}` : '—';
+}
+
+function renderTable() {
+  const rows = loadedTrials.map((trial, i) => ({ trial, match: matchResults?.[i] }));
+  if (matchResults) rows.sort((a, b) => b.match.score - a.match.score);
+  $('trial-rows').innerHTML = rows.slice(0, rowsShown).map(rowHtml).join('');
+  const more = Math.min(ROWS_PER_PAGE, rows.length - rowsShown);
+  $('show-more').hidden = more <= 0;
+  $('show-more').textContent = `Show ${fmt(more)} more of ${fmt(rows.length)}`;
+}
+
+function rowHtml({ trial, match }) {
+  const starred = starredTrials.has(trial.nctId);
+  const matchCell = match
+    ? `<span class="score ${match.score >= 60 && match.eligible ? 'high' : ''}">${match.score}</span>
+       <div class="match-note">${esc(match.note)}</div>`
+    : '<span class="muted">—</span>';
+  const conditions = trial.conditions.slice(0, 3).join(', ') +
+    (trial.conditions.length > 3 ? '…' : '');
+  return `<tr class="${match && !match.eligible ? 'ineligible' : ''}">
+    <td><button class="star" data-nct="${esc(trial.nctId)}" aria-pressed="${starred}"
+      aria-label="Shortlist ${esc(trial.nctId)}">${starred ? '★' : '☆'}</button></td>
+    <td>${matchCell}</td>
+    <td><a href="https://clinicaltrials.gov/study/${encodeURIComponent(trial.nctId)}"
+      target="_blank" rel="noopener">${esc(trial.title)}</a>
+      <div class="nct">${esc(trial.nctId)}</div></td>
+    <td>${esc(STATUS_LABELS[trial.status] ?? trial.status)}</td>
+    <td>${esc(formatPhase(trial.phases))}</td>
+    <td>${esc(conditions)}</td>
+  </tr>`;
+}
+
+function renderShortlist() {
+  const shortlist = [...starredTrials.values()];
+  $('shortlist-count').textContent = `(${shortlist.length})`;
+  $('shortlist-hint').hidden = shortlist.length > 0;
+  $('enrich-btn').disabled = !shortlist.length;
+  $('shortlist-chips').innerHTML = shortlist
+    .map((t) => `<li><strong>${esc(t.nctId)}</strong><span>${esc(t.title)}</span>
+      <button type="button" data-unstar="${esc(t.nctId)}" aria-label="Remove ${esc(t.nctId)}">×</button></li>`)
+    .join('');
+}
+
+function toggleStar(nctId) {
+  if (starredTrials.has(nctId)) starredTrials.delete(nctId);
+  else if (trialsById.has(nctId)) starredTrials.set(nctId, trialsById.get(nctId));
+  const button = document.querySelector(`.star[data-nct="${CSS.escape(nctId)}"]`);
+  if (button) {
+    button.setAttribute('aria-pressed', starredTrials.has(nctId));
+    button.textContent = starredTrials.has(nctId) ? '★' : '☆';
+  }
+  renderShortlist();
+}
+
+function renderSection(service, data) {
+  $('enrich-sections').insertAdjacentHTML('beforeend', `
+    <section class="enrich-section">
+      <h3>${esc(service.name)} <small>· ${esc(service.source)}</small></h3>
+      ${service.render(data)}
+    </section>`);
+}
+
+function renderFailure(service, error) {
+  const message = error.status === 404 ? service.notFound : service.unavailable;
+  renderSection({ ...service, render: () => `<p class="notice">${esc(message)}</p>` });
+}
+
+function labelText(label, fields) {
+  for (const field of fields) {
+    const text = label[field]?.[0];
+    if (text) return text.replace(/^\s*[\d.]*\s*(INDICATIONS (AND|&) USAGE|WARNINGS( AND PRECAUTIONS)?)\s*/, '');
+  }
+  return '';
+}
+
+function renderDrugLabels({ drugs, labels, disclaimer }) {
+  if (!drugs.length) return '<p class="muted">No drug interventions in this shortlist.</p>';
+
+  const names = (label) =>
+    [...(label.openfda?.generic_name ?? []), ...(label.openfda?.brand_name ?? [])]
+      .map((n) => n.toLowerCase());
+  const missing = [];
+  const cards = [];
+  for (const drug of drugs) {
+    // Prefer the single-ingredient label (shortest generic name), then a real brand name.
+    const unbranded = (l) => Number(names(l)[0] === names(l)[1]);
+    const label = labels
+      .filter((l) => names(l).some((n) => n.includes(drug)))
+      .sort((a, b) => names(a)[0].length - names(b)[0].length || unbranded(a) - unbranded(b))[0];
+    if (!label) {
+      missing.push(drug);
+      continue;
+    }
+    const generic = label.openfda?.generic_name?.[0] ?? drug;
+    const brandName = label.openfda?.brand_name?.[0] ?? '';
+    const brand = brandName.toLowerCase() === generic.toLowerCase() ? '' : brandName;
+    const uses = labelText(label, ['indications_and_usage', 'purpose']);
+    const warning = labelText(label, ['boxed_warning', 'warnings_and_cautions', 'warnings']);
+    cards.push(`<div class="drug">
+      <strong>${esc(brand || generic)}</strong> <span class="muted">${esc(brand ? generic : '')}</span>
+      ${uses ? `<p><b>Used for:</b> ${esc(truncate(uses, 260))}</p>` : ''}
+      ${warning ? `<p><b>Warning:</b> ${esc(truncate(warning, 200))}</p>` : ''}
+    </div>`);
+  }
+  return `<p class="disclaimer">${esc(disclaimer)}</p>
+    ${cards.join('')}
+    ${missing.length ? `<p class="muted">No brand-name label found for: ${esc(missing.join(', '))}</p>` : ''}`;
+}
+
+function renderPublications(docs) {
+  if (!docs.length) return '<p class="muted">These trials list no publications.</p>';
+  const items = docs.map((doc) => {
+    const year = (doc.pubdate ?? '').slice(0, 4);
+    const author = doc.authors?.[0]?.name ?? '';
+    return `<li><a href="https://pubmed.ncbi.nlm.nih.gov/${encodeURIComponent(doc.uid)}/"
+      target="_blank" rel="noopener">${esc(doc.title)}</a>
+      <span class="muted">${esc([doc.source, year, author].filter(Boolean).join(' · '))}</span></li>`;
+  });
+  return `<ol class="pubs">${items.join('')}</ol>`;
+}
+
+// ---------------------------------------------------------------------------
+// Wiring
+// ---------------------------------------------------------------------------
+$('profile-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  runSearch();
+});
+$('match-btn').addEventListener('click', updateMatches);
+$('show-more').addEventListener('click', () => {
+  rowsShown += ROWS_PER_PAGE;
+  renderTable();
+});
+$('enrich-btn').addEventListener('click', enrichShortlist);
+$('trial-rows').addEventListener('click', (event) => {
+  const star = event.target.closest('.star');
+  if (star) toggleStar(star.dataset.nct);
+});
+$('shortlist-chips').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-unstar]');
+  if (button) toggleStar(button.dataset.unstar);
+});
+
+for (const name of Object.keys(DEMO_SHORTLISTS)) {
+  $('demo-shortlist').add(new Option(name, name));
+}
+$('demo-shortlist').addEventListener('change', (event) => {
+  const ids = DEMO_SHORTLISTS[event.target.value];
+  if (!ids) return;
+  starredTrials.clear();
+  for (const id of ids) if (trialsById.has(id)) starredTrials.set(id, trialsById.get(id));
+  renderTable();
+  renderShortlist();
+  event.target.value = '';
+});
+
+if (STAGE) {
+  $('mode-badge').textContent = 'Stage · replaying recorded responses';
+  $('mode-badge').classList.add('stage');
+}
+if (RECORD) {
+  $('mode-badge').textContent = 'Live · recording';
+  $('save-recording').hidden = false;
+  $('save-recording').addEventListener('click', saveRecording);
+}
+
+renderShortlist();
+runSearch();
+</script>
+</body>
+</html>
