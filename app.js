@@ -1,8 +1,6 @@
 // Trial Finder: the demo app for the async scheduling talk. See DEMO-SPEC.md.
 // Find the code each segment changes by searching for "Segment 1" … "Segment 5".
-// Demo selections (tick these rows before clicking Enrich selected):
-//   Segment 1: NCT07512609, NCT06095492, NCT05893927 (approved drugs: both sections load)
-//   Segment 2: NCT07675499, NCT07861191 (no FDA label, so openFDA answers 404)
+// The "Segment 1 trials" / "Segment 2 trials" buttons pick the demo rows: see DEMO_SELECTIONS.
 
 // Conference wifi: set to true to replay the saved responses in data/.
 const OFFLINE = false;
@@ -233,5 +231,19 @@ $('results').addEventListener('change', ({ target }) => {
   if (target.checked) selected.add(target.dataset.id);
   else selected.delete(target.dataset.id);
 });
+
+// One click replaces the selection with a segment's demo trials. Offline mode has
+// saved responses for exactly these two selections.
+const DEMO_SELECTIONS = {
+  'demo-1': ['NCT07512609', 'NCT06095492', 'NCT05893927'], // approved drugs: both sections load
+  'demo-2': ['NCT07675499', 'NCT07861191'], // no FDA label, so openFDA answers 404
+};
+for (const [button, ids] of Object.entries(DEMO_SELECTIONS)) {
+  $(button).addEventListener('click', () => {
+    selected.clear();
+    ids.forEach((id) => selected.add(id));
+    for (const box of $('results').querySelectorAll('input')) box.checked = selected.has(box.dataset.id);
+  });
+}
 
 search();
