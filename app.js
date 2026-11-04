@@ -5,8 +5,9 @@
 // Conference wifi: set to true to replay the saved responses in data/.
 const OFFLINE = false;
 
-// Offline mode waits this long (ms) per service: the measured live latencies.
-const SIMULATED_LATENCY = { ctgov: 264, openfda: 405, pubmed: 340 };
+// Offline mode waits this long (ms) per service. openFDA ranged ~100–1,500ms live depending on
+// response size; 1,200 keeps the spinner on screen long enough for the audience to see it.
+const SIMULATED_LATENCY = { ctgov: 264, openfda: 1200, pubmed: 340 };
 
 const CTGOV_URL = 'https://clinicaltrials.gov/api/v2/studies';
 const OPENFDA_URL = 'https://api.fda.gov/drug/label.json';
