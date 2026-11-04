@@ -30,8 +30,12 @@ progress { width: 260px; height: 20px; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-#sections section { margin: 16px 0 0; }
-.disclaimer { font-size: 0.75rem; color: #555; }
+/* Drug information and Publications side by side, so both arrivals are visible at once */
+#sections { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; margin-top: 16px; }
+#sections section { margin: 0; font-size: 0.7em; }
+#sections .error { grid-column: 1 / -1; }
+#sections p, #sections ul { margin: 0 0 8px; }
+.disclaimer { font-size: 0.85em; color: #555; }
 .error { color: #a3221a; }
 .muted { color: #555; }
 
