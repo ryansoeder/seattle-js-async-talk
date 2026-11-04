@@ -3,7 +3,7 @@
 // The "Segment 1 trials" / "Segment 2 trials" buttons pick the demo rows: see DEMO_SELECTIONS.
 
 // Conference wifi: set to true to replay the saved responses in data/.
-const OFFLINE = false;
+const OFFLINE = true;
 
 // Offline mode waits this long (ms) per service. openFDA ranged ~100–1,500ms live depending on
 // response size; 1,200 keeps the spinner on screen long enough for the audience to see it.
