@@ -21,8 +21,8 @@ const TOP_ROWS = 50;
 const $ = (id) => document.getElementById(id);
 const esc = (text) => String(text ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-let trials = [];
-const selected = new Set(); // NCT IDs of ticked rows
+let allTrials = []; // every trial from the last search
+const selectedIds = new Set(); // NCT IDs of ticked rows
 
 // ---------------------------------------------------------------------------
 // Network
@@ -51,16 +51,16 @@ async function search() {
     fields: FIELDS,
     pageSize: 1000,
   });
-  trials = [];
+  allTrials = [];
   for (let page = 0; page < MAX_PAGES; page++) {
     const res = await request('ctgov', `${CTGOV_URL}?${params}`);
     if (!res.ok) throw new Error(`ClinicalTrials.gov responded ${res.status}`);
     const body = await res.json();
-    trials.push(...body.studies.map(toTrial));
+    allTrials.push(...body.studies.map(toTrial));
     if (!body.nextPageToken) break;
     params.set('pageToken', body.nextPageToken);
   }
-  $('status').textContent = `${trials.length.toLocaleString()} trials`;
+  $('status').textContent = `${allTrials.length.toLocaleString()} trials`;
   renderTable(null);
   performance.measure('search', 'search:start');
 }
@@ -91,8 +91,8 @@ function years(age) {
 // ---------------------------------------------------------------------------
 // Enrichment: two independent services, one request each for the whole selection
 // ---------------------------------------------------------------------------
-async function fetchDrugInfo(trials) {
-  const names = [...new Set(trials.flatMap((t) => t.interventions))]
+async function fetchDrugInfo(selectedTrials) {
+  const names = [...new Set(selectedTrials.flatMap((t) => t.interventions))]
     .map((name) => name.replace(/\(.*?\)|["\\]|\s\d.*$/g, '').trim().toLowerCase()) // drop "(…)" and doses
     .filter((name) => name && name.length < 40 && !name.includes('placebo'));
   const terms = names.map((name) => `"${name}"`).join(' ');
@@ -107,30 +107,30 @@ async function fetchDrugInfo(trials) {
   return res.json();
 }
 
-async function fetchPublications(trials) {
-  const ids = [...new Set(trials.flatMap((t) => t.pmids))].slice(0, 20);
+async function fetchPublications(selectedTrials) {
+  const ids = [...new Set(selectedTrials.flatMap((t) => t.pmids))].slice(0, 20);
   const res = await request('pubmed', `${PUBMED_URL}?db=pubmed&retmode=json&id=${ids.join(',')}`);
   if (!res.ok) throw new Error(`PubMed responded ${res.status}`);
   const { result } = await res.json();
   return result.uids.map((uid) => result[uid]);
 }
 
-const services = [
-  { name: 'Drug information', fetch: fetchDrugInfo, failMessage: 'No FDA label found for these drugs.' },
-  { name: 'Publications', fetch: fetchPublications, failMessage: 'Publications are unavailable right now.' },
+const apis = [
+  { name: 'Drug information', fetchDetails: fetchDrugInfo, failMessage: 'No FDA label found for these drugs.' },
+  { name: 'Publications', fetchDetails: fetchPublications, failMessage: 'Publications are unavailable right now.' },
 ];
 
-async function enrichSelected() {
-  const chosen = trials.filter((t) => selected.has(t.id));
+async function enrichSelectedTrials() {
+  const selectedTrials = allTrials.filter((trial) => selectedIds.has(trial.id));
   performance.mark('enrich:start');
   $('sections').innerHTML = '';
 
   // 🐌 JANK — Segment 1: forEach doesn't wait for async callbacks, so the spinner hides at once and sections land one by one
   // (Segment 2 starts from Segment 1's fix.)
   showSpinner();
-  services.forEach(async (service) => {
-    const data = await service.fetch(chosen);
-    renderSection(service.name, data);
+  apis.forEach(async (api) => {
+    const details = await api.fetchDetails(selectedTrials);
+    renderDetailsSection(api.name, details);
   });
   hideSpinner(); // runs immediately — forEach didn't wait
   // 🐌 END JANK — Segment 1
@@ -142,25 +142,25 @@ async function enrichSelected() {
 // Matching: runs in the browser, so the patient's profile never leaves the device
 // ---------------------------------------------------------------------------
 async function updateMatches() {
-  const profile = readProfile();
+  const patientProfile = readPatientProfile();
   performance.mark('match:start');
-  setProgress(0);
+  setProgressBar(0);
 
   // 🐌 JANK — Segment 3: one long synchronous loop; the browser can't paint or take input
   // (Segment 4 and Segment 5 fix this same loop.)
-  const scores = [];
-  for (let i = 0; i < trials.length; i++) {
-    scores[i] = matchTrial(trials[i], profile);
-    setProgress(i / trials.length); // never paints until the loop ends
+  const matchScores = [];
+  for (let i = 0; i < allTrials.length; i++) {
+    matchScores[i] = scoreTrial(allTrials[i], patientProfile);
+    setProgressBar(i / allTrials.length); // never paints until the loop ends
   }
   // 🐌 END JANK — Segment 3
 
-  setProgress(1);
-  renderTable(scores);
+  setProgressBar(1);
+  renderTable(matchScores);
   performance.measure('match', 'match:start');
 }
 
-function readProfile() {
+function readPatientProfile() {
   const list = (id) => $(id).value.split(',').map((s) => s.trim()).filter(Boolean);
   return { conditions: list('conditions'), age: Number($('age').value), medications: list('medications') };
 }
@@ -170,15 +170,15 @@ function readProfile() {
 // ---------------------------------------------------------------------------
 const showSpinner = () => ($('spinner').hidden = false);
 const hideSpinner = () => ($('spinner').hidden = true);
-const setProgress = (fraction) => ($('progress').value = fraction);
+const setProgressBar = (fraction) => ($('progress').value = fraction);
 
-function renderTable(scores) {
-  const rows = trials.map((trial, i) => ({ trial, score: scores?.[i] }));
-  if (scores) rows.sort((a, b) => b.score - a.score);
+function renderTable(matchScores) {
+  const rows = allTrials.map((trial, i) => ({ trial, score: matchScores?.[i] }));
+  if (matchScores) rows.sort((a, b) => b.score - a.score);
   $('results').innerHTML = rows
     .slice(0, TOP_ROWS)
     .map(({ trial, score }) => `<tr>
-      <td><input type="checkbox" data-id="${esc(trial.id)}" ${selected.has(trial.id) ? 'checked' : ''}></td>
+      <td><input type="checkbox" data-id="${esc(trial.id)}" ${selectedIds.has(trial.id) ? 'checked' : ''}></td>
       <td>${esc(trial.title)}</td>
       <td>${esc(formatPhases(trial.phases))}</td>
       <td>${score ?? '—'}</td>
@@ -209,11 +209,11 @@ const sectionBodies = {
       .join('')}</ul>`,
 };
 
-function renderSection(name, data) {
-  $('sections').insertAdjacentHTML('beforeend', `<section><h3>${esc(name)}</h3>${sectionBodies[name](data)}</section>`);
+function renderDetailsSection(name, details) {
+  $('sections').insertAdjacentHTML('beforeend', `<section><h3>${esc(name)}</h3>${sectionBodies[name](details)}</section>`);
 }
 
-function renderNotice(name, message) {
+function renderFailureNotice(name, message) {
   $('sections').insertAdjacentHTML('beforeend', `<section><h3>${esc(name)}</h3><p>${esc(message)}</p></section>`);
 }
 
@@ -227,10 +227,10 @@ function showEnrichError(error) {
 // ---------------------------------------------------------------------------
 $('search-button').addEventListener('click', search);
 $('match-button').addEventListener('click', updateMatches);
-$('enrich-button').addEventListener('click', () => enrichSelected().catch(showEnrichError));
+$('enrich-button').addEventListener('click', () => enrichSelectedTrials().catch(showEnrichError));
 $('results').addEventListener('change', ({ target }) => {
-  if (target.checked) selected.add(target.dataset.id);
-  else selected.delete(target.dataset.id);
+  if (target.checked) selectedIds.add(target.dataset.id);
+  else selectedIds.delete(target.dataset.id);
 });
 
 // One click replaces the selection with a segment's demo trials. Offline mode has
@@ -241,9 +241,9 @@ const DEMO_SELECTIONS = {
 };
 for (const [button, ids] of Object.entries(DEMO_SELECTIONS)) {
   $(button).addEventListener('click', () => {
-    selected.clear();
-    ids.forEach((id) => selected.add(id));
-    for (const box of $('results').querySelectorAll('input')) box.checked = selected.has(box.dataset.id);
+    selectedIds.clear();
+    ids.forEach((id) => selectedIds.add(id));
+    for (const box of $('results').querySelectorAll('input')) box.checked = selectedIds.has(box.dataset.id);
   });
 }
 

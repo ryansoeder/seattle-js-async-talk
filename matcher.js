@@ -1,21 +1,21 @@
-// matchTrial(trial, profile) → a score. Loaded by index.html, and by the worker in
+// scoreTrial(trial, patientProfile) → a score. Loaded by index.html, and by the worker in
 // branch 05. Real work, no fake delay: every profile term is compared with every word
 // of the eligibility text, allowing typos — patients and sponsors both misspell drugs.
 
 const MAX_TYPOS = 2;
 
-function matchTrial(trial, profile) {
+function scoreTrial(trial, patientProfile) {
   const text = trial.eligibility.toLowerCase();
   const cut = text.indexOf('exclusion criteria');
   const inclusion = words(cut === -1 ? text : text.slice(0, cut));
   const exclusion = cut === -1 ? [] : words(text.slice(cut));
 
   let score = 0;
-  for (const term of [...profile.conditions, ...profile.medications]) {
+  for (const term of [...patientProfile.conditions, ...patientProfile.medications]) {
     if (mentions(inclusion, term)) score += 1;
     if (mentions(exclusion, term)) score -= 2;
   }
-  if (profile.age < trial.minAge || profile.age > trial.maxAge) score -= 5;
+  if (patientProfile.age < trial.minAge || patientProfile.age > trial.maxAge) score -= 5;
   return score;
 }
 
