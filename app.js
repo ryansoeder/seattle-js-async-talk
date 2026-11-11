@@ -146,14 +146,19 @@ async function updateMatches() {
   performance.mark('match:start');
   setProgressBar(0);
 
-  // 🐌 JANK — Segment 3: one long synchronous loop; the browser can't paint or take input
-  // (Segment 4 and Segment 5 fix this same loop.)
+  // ⚡ FIX — Segment 3: cut the loop into ~10ms chunks and yield between them, so input and paint can get a turn
+  const YIELD_EVERY_MS = 10;
   const matchScores = [];
+  let lastYield = performance.now();
   for (let i = 0; i < allTrials.length; i++) {
     matchScores[i] = scoreTrial(allTrials[i], patientProfile);
-    setProgressBar(i / allTrials.length); // never paints until the loop ends
+    if (performance.now() - lastYield > YIELD_EVERY_MS) {
+      setProgressBar(i / allTrials.length);
+      await Promise.resolve(); // a microtask: it runs before the browser can paint, so nothing changes
+      lastYield = performance.now();
+    }
   }
-  // 🐌 END JANK — Segment 3
+  // ⚡ END FIX — Segment 3
 
   setProgressBar(1);
   renderTable(matchScores);
