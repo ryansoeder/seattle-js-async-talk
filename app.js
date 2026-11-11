@@ -146,7 +146,7 @@ async function updateMatches() {
   performance.mark('match:start');
   setProgressBar(0);
 
-  // ⚡ FIX — Segment 3: cut the loop into ~10ms chunks and yield between them, so input and paint can get a turn
+  // ⚡ FIX — Segment 4: same chunks, but yield with scheduler.yield() so matching resumes ahead of other queued tasks
   const YIELD_EVERY_MS = 10;
   const matchScores = [];
   let lastYield = performance.now();
@@ -154,11 +154,11 @@ async function updateMatches() {
     matchScores[i] = scoreTrial(allTrials[i], patientProfile);
     if (performance.now() - lastYield > YIELD_EVERY_MS) {
       setProgressBar(i / allTrials.length);
-      await new Promise((resolve) => setTimeout(resolve, 0)); // a task: input and paint get a turn first
+      await (globalThis.scheduler?.yield?.() ?? new Promise((resolve) => setTimeout(resolve, 0))); // Safari lacks scheduler.yield()
       lastYield = performance.now();
     }
   }
-  // ⚡ END FIX — Segment 3
+  // ⚡ END FIX — Segment 4
 
   setProgressBar(1);
   renderTable(matchScores);
