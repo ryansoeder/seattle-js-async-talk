@@ -125,15 +125,13 @@ async function enrichSelectedTrials() {
   performance.mark('enrich:start');
   $('sections').innerHTML = '';
 
-  // 🐌 JANK — Segment 1: forEach doesn't wait for async callbacks, so the spinner hides at once and sections land one by one
-  // (Segment 2 starts from Segment 1's fix.)
+  // ⚡ FIX — Segment 1: Promise.all gives us one promise to await, so the spinner holds and everything lands at once
+  // (Segment 2 starts here: if either service fails, Promise.all rejects and both results are lost.)
   showSpinner();
-  apis.forEach(async (api) => {
-    const details = await api.fetchDetails(selectedTrials);
-    renderDetailsSection(api.name, details);
-  });
-  hideSpinner(); // runs immediately — forEach didn't wait
-  // 🐌 END JANK — Segment 1
+  const detailsPerApi = await Promise.all(apis.map((api) => api.fetchDetails(selectedTrials)));
+  detailsPerApi.forEach((details, i) => renderDetailsSection(apis[i].name, details));
+  hideSpinner();
+  // ⚡ END FIX — Segment 1
 
   performance.measure('enrich', 'enrich:start');
 }
