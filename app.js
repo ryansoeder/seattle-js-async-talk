@@ -154,7 +154,7 @@ async function updateMatches() {
     matchScores[i] = scoreTrial(allTrials[i], patientProfile);
     if (performance.now() - lastYield > YIELD_EVERY_MS) {
       setProgressBar(i / allTrials.length);
-      await Promise.resolve(); // a microtask: it runs before the browser can paint, so nothing changes
+      await new Promise((resolve) => setTimeout(resolve, 0)); // a task: input and paint get a turn first
       lastYield = performance.now();
     }
   }
