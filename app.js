@@ -125,13 +125,15 @@ async function enrichSelectedTrials() {
   performance.mark('enrich:start');
   $('sections').innerHTML = '';
 
-  // ⚡ FIX — Segment 1: Promise.all gives us one promise to await, so the spinner holds and everything lands at once
-  // (Segment 2 starts here: if either service fails, Promise.all rejects and both results are lost.)
+  // ⚡ FIX — Segment 2: Promise.allSettled waits for every outcome, so one failed service can't throw away the others
   showSpinner();
-  const detailsPerApi = await Promise.all(apis.map((api) => api.fetchDetails(selectedTrials)));
-  detailsPerApi.forEach((details, i) => renderDetailsSection(apis[i].name, details));
+  const outcomesPerApi = await Promise.allSettled(apis.map((api) => api.fetchDetails(selectedTrials)));
+  outcomesPerApi.forEach((outcome, i) => {
+    if (outcome.status === 'fulfilled') renderDetailsSection(apis[i].name, outcome.value);
+    else renderFailureNotice(apis[i].name, apis[i].failMessage);
+  });
   hideSpinner();
-  // ⚡ END FIX — Segment 1
+  // ⚡ END FIX — Segment 2
 
   performance.measure('enrich', 'enrich:start');
 }
