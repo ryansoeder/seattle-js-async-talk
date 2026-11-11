@@ -24,6 +24,10 @@ const esc = (text) => String(text ?? '').replace(/[&<>"']/g, (c) => `&#${c.charC
 let allTrials = []; // every trial from the last search
 const selectedIds = new Set(); // NCT IDs of ticked rows
 
+// ⚡ FIX — Segment 5: one worker, created once and reused, so matching runs on its own thread
+const matchWorker = new Worker('worker.js');
+// ⚡ END FIX — Segment 5
+
 // ---------------------------------------------------------------------------
 // Network
 // ---------------------------------------------------------------------------
@@ -62,6 +66,13 @@ async function search() {
   }
   $('status').textContent = `${allTrials.length.toLocaleString()} trials`;
   renderTable(null);
+
+  // ⚡ FIX — Segment 5: copy the trials into the worker once per search; each match then sends only the profile
+  performance.mark('worker:copy:start');
+  matchWorker.postMessage({ allTrials });
+  performance.measure('worker:copy', 'worker:copy:start');
+  // ⚡ END FIX — Segment 5
+
   performance.measure('search', 'search:start');
 }
 
@@ -146,19 +157,15 @@ async function updateMatches() {
   performance.mark('match:start');
   setProgressBar(0);
 
-  // ⚡ FIX — Segment 4: same chunks, but yield with scheduler.yield() so matching resumes ahead of other queued tasks
-  const YIELD_EVERY_MS = 10;
-  const matchScores = [];
-  let lastYield = performance.now();
-  for (let i = 0; i < allTrials.length; i++) {
-    matchScores[i] = scoreTrial(allTrials[i], patientProfile);
-    if (performance.now() - lastYield > YIELD_EVERY_MS) {
-      setProgressBar(i / allTrials.length);
-      await (globalThis.scheduler?.yield?.() ?? new Promise((resolve) => setTimeout(resolve, 0))); // Safari lacks scheduler.yield()
-      lastYield = performance.now();
-    }
-  }
-  // ⚡ END FIX — Segment 4
+  // ⚡ FIX — Segment 5: the worker matches on its own thread; progress and scores come back as messages
+  const matchScores = await new Promise((resolve) => {
+    matchWorker.onmessage = ({ data: message }) => {
+      if (message.matchScores) resolve(message.matchScores);
+      else setProgressBar(message.progress);
+    };
+    matchWorker.postMessage({ patientProfile });
+  });
+  // ⚡ END FIX — Segment 5
 
   setProgressBar(1);
   renderTable(matchScores);
